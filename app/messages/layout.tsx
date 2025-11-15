@@ -20,7 +20,7 @@ export default async function MessagesLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="font-bold text-lg">
-            deralal
+              deralal
             </Link>
             <h1 className="text-2xl font-bold">Messages</h1>
             <Link href="/rentee/settings">
@@ -35,7 +35,7 @@ export default async function MessagesLayout({
       <div className="flex-1 flex overflow-hidden">
         {/* Conversations List (Left Side) */}
         <div className="w-full md:w-80 border-r border-border flex flex-col bg-card/50">
-          <ConversationList serverUser={user} />
+          <ConversationList />
         </div>
 
         {/* Chat Area (Right Side) */}
