@@ -1,11 +1,13 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/supabase/client"
 import { Bath, Bed, MapPin, Search, Star } from "lucide-react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
+
+import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
+import { parseQueryToFilters } from "./search-filters"
 
 interface Listing {
   id: string
@@ -24,7 +26,6 @@ interface Listing {
 
 export default function SearchPage() {
   const searchParams = useSearchParams()
-  const router = useRouter()
   const [listings, setListings] = useState<Listing[]>([])
   const [filteredListings, setFilteredListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,17 +38,15 @@ export default function SearchPage() {
   const [bedrooms, setBedrooms] = useState("")
   const [bathrooms, setBathrooms] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
+  const [amenitiesFilter, setAmenitiesFilter] = useState<string[]>([])
 
-  // Fetch listings
+  // Fetch listings from Supabase using structured filters
   useEffect(() => {
     const fetchListings = async () => {
       try {
         setLoading(true)
         const supabase = createClient()
 
-        // --- ⬇️ START OF CHANGES ⬇️ ---
-
-        // 1. Get the current user
         const {
           data: { user },
         } = await supabase.auth.getUser()
@@ -57,14 +56,11 @@ export default function SearchPage() {
           .select("*")
           .eq("availability_status", "available")
 
-        // 2. If the user is logged in, hide their own listings
+        // Hide own listings if logged in
         if (user) {
           query = query.neq("landlord_id", user.id)
         }
 
-        // --- ⬆️ END OF CHANGES ⬆️ ---
-
-        // Apply filters (this part is unchanged)
         if (city) {
           query = query.ilike("city", `%${city}%`)
         }
@@ -78,11 +74,16 @@ export default function SearchPage() {
         }
 
         if (bedrooms) {
-          query = query.eq("bedrooms", parseInt(bedrooms))
+          query = query.eq("bedrooms", parseInt(bedrooms, 10))
         }
 
         if (bathrooms) {
-          query = query.eq("bathrooms", parseInt(bathrooms))
+          query = query.eq("bathrooms", parseInt(bathrooms, 10))
+        }
+
+        if (amenitiesFilter.length > 0) {
+          // amenities is text[] in your schema
+          query = query.contains("amenities", amenitiesFilter)
         }
 
         const { data, error: fetchError } = await query
@@ -102,23 +103,39 @@ export default function SearchPage() {
     }
 
     fetchListings()
-  }, [city, minPrice, maxPrice, bedrooms, bathrooms])
+  }, [city, minPrice, maxPrice, bedrooms, bathrooms, amenitiesFilter])
 
-  // Filter listings by search query
+  // Token-based client-side text matching for searchQuery
   useEffect(() => {
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      const filtered = listings.filter(
-        (listing) =>
-          listing.title.toLowerCase().includes(query) ||
-          listing.description.toLowerCase().includes(query) ||
-          listing.address.toLowerCase().includes(query) ||
-          listing.amenities.some((a) => a.toLowerCase().includes(query))
-      )
-      setFilteredListings(filtered)
-    } else {
+    const q = searchQuery.toLowerCase().trim()
+
+    if (!q) {
       setFilteredListings(listings)
+      return
     }
+
+    const tokens = q.split(/\s+/).filter(Boolean)
+
+    const filtered = listings.filter((listing) => {
+      const haystack = (
+        listing.title +
+        " " +
+        listing.description +
+        " " +
+        listing.address +
+        " " +
+        listing.city +
+        " " +
+        listing.district +
+        " " +
+        listing.amenities.join(" ")
+      ).toLowerCase()
+
+      // Require that every token appears somewhere in the listing text
+      return tokens.every((t) => haystack.includes(t))
+    })
+
+    setFilteredListings(filtered)
   }, [searchQuery, listings])
 
   const handleReset = () => {
@@ -128,6 +145,7 @@ export default function SearchPage() {
     setBedrooms("")
     setBathrooms("")
     setSearchQuery("")
+    setAmenitiesFilter([])
   }
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -138,36 +156,23 @@ export default function SearchPage() {
   }
 
   const parseNaturalLanguageSearch = (query: string) => {
-    const lowerQuery = query.toLowerCase()
+    const parsed = parseQueryToFilters(query)
 
-    // Detect city/location
-    const cityMatch = query.match(/(?:in|at)\s+(\w+)/i)
-    if (cityMatch) {
-      setCity(cityMatch[1])
-    }
+    if (parsed.city) setCity(parsed.city)
+    if (parsed.bedrooms !== undefined) setBedrooms(parsed.bedrooms.toString())
+    if (parsed.bathrooms !== undefined)
+      setBathrooms(parsed.bathrooms.toString())
+    if (parsed.minPrice !== undefined) setMinPrice(parsed.minPrice.toString())
+    if (parsed.maxPrice !== undefined) setMaxPrice(parsed.maxPrice.toString())
+    if (parsed.amenities && parsed.amenities.length > 0)
+      setAmenitiesFilter(parsed.amenities)
 
-    // Detect bedrooms (e.g., "2BHK", "2 bed", "2 bedroom")
-    const bedroomMatch = query.match(/(\d+)\s*(?:bhk|bed|bedroom)/i)
-    if (bedroomMatch) {
-      setBedrooms(bedroomMatch[1])
-    }
-
-    // Detect price range (e.g., "5000-15000", "5000 to 15000", "rs 5000")
-    const priceMatch = query.match(
-      /(?:rs\.?|npr\.?)\s*(\d+)(?:\s*-|to)\s*(\d+)/i
-    )
-    if (priceMatch) {
-      setMinPrice(priceMatch[1])
-      setMaxPrice(priceMatch[2])
-    }
-
-    // Detect amenities (common ones)
-    if (lowerQuery.includes("wifi") || lowerQuery.includes("internet")) {
-      // Would need to add amenity filtering logic
-    }
-    if (lowerQuery.includes("water") || lowerQuery.includes("24 hours")) {
-      // Would need to add amenity filtering logic
-    }
+    // --- THIS IS THE FIX ---
+    // After parsing the query and setting the database filters,
+    // clear the client-side searchQuery. This prevents the
+    // second useEffect (client-side filter) from running
+    // and incorrectly filtering out all the database results.
+    setSearchQuery("")
   }
 
   return (
@@ -208,14 +213,14 @@ export default function SearchPage() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g., 2BHK in Kathmandu 5000-15000"
+                    placeholder="e.g., 3BHK in Pokhara Bagar fully furnished with wifi under 20k"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={handleSearch}
                     className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm h-9"
                   />
                   <p className="text-xs text-muted-foreground mt-2">
-                    Press Enter to search with auto-detection!
+                    Press Enter to auto-detect filters
                   </p>
                 </div>
 
@@ -226,7 +231,7 @@ export default function SearchPage() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g., Kathmandu"
+                    placeholder="e.g., Pokhara"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm h-9"
