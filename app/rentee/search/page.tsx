@@ -3,7 +3,7 @@
 import { Bath, Bed, MapPin, Search, Star } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
@@ -24,8 +24,29 @@ interface Listing {
   rating: number
 }
 
-export default function SearchPage() {
+// decide if we should save this query as a "real" search
+function isMeaningfulSearch(query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return false
+
+  const tokens = q.split(/\s+/).filter(Boolean)
+
+  // single token: require something like "3bhk", "pokhara"
+  if (tokens.length === 1) {
+    const t = tokens[0]
+    if (t.length < 4) return false // filters out "3"
+    if (/\d/.test(t)) return true // "3bhk", "2bhk"
+    return true // e.g. "pokhara"
+  }
+
+  // multi-token: at least one token length >= 3
+  const hasSubstantialToken = tokens.some((t) => t.length >= 3)
+  return hasSubstantialToken
+}
+
+function SearchPageContent() {
   const searchParams = useSearchParams()
+
   const [listings, setListings] = useState<Listing[]>([])
   const [filteredListings, setFilteredListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,6 +60,9 @@ export default function SearchPage() {
   const [bathrooms, setBathrooms] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [amenitiesFilter, setAmenitiesFilter] = useState<string[]>([])
+
+  // last saved query to avoid identical duplicates
+  const [lastSavedQuery, setLastSavedQuery] = useState<string | null>(null)
 
   // Fetch listings from Supabase using structured filters
   useEffect(() => {
@@ -138,6 +162,45 @@ export default function SearchPage() {
     setFilteredListings(filtered)
   }, [searchQuery, listings])
 
+  // Debounced logging of meaningful natural-language queries to search_history
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (!q) return
+
+    const handler = setTimeout(async () => {
+      // only save meaningful ones like "3bhk", "3bhk in kathmandu", not just "3"
+      if (!isMeaningfulSearch(q)) return
+      if (lastSavedQuery && lastSavedQuery === q) return
+
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
+
+      const parsed = parseQueryToFilters(q)
+
+      const { error } = await supabase.from("search_history").insert({
+        rentee_id: user.id,
+        raw_query: q,
+        city: parsed.city ?? null,
+        min_price: parsed.minPrice ?? null,
+        max_price: parsed.maxPrice ?? null,
+        bedrooms: parsed.bedrooms ?? null,
+        bathrooms: parsed.bathrooms ?? null,
+      })
+
+      if (error) {
+        console.warn("Failed to save search", error.message)
+        return
+      }
+
+      setLastSavedQuery(q)
+    }, 800) // debounce ~0.8s after typing stops
+
+    return () => clearTimeout(handler)
+  }, [searchQuery, lastSavedQuery])
+
   const handleReset = () => {
     setCity("")
     setMinPrice("")
@@ -167,11 +230,6 @@ export default function SearchPage() {
     if (parsed.amenities && parsed.amenities.length > 0)
       setAmenitiesFilter(parsed.amenities)
 
-    // --- THIS IS THE FIX ---
-    // After parsing the query and setting the database filters,
-    // clear the client-side searchQuery. This prevents the
-    // second useEffect (client-side filter) from running
-    // and incorrectly filtering out all the database results.
     setSearchQuery("")
   }
 
@@ -213,7 +271,7 @@ export default function SearchPage() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g., 3BHK in Pokhara Bagar fully furnished with wifi under 20k"
+                    placeholder="e.g., 3BHK in Kathmandu with wifi under 20000"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={handleSearch}
@@ -419,5 +477,24 @@ export default function SearchPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function SearchPageLoading() {
+  return (
+    <div className="min-h-screen bg-background pt-6 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+        <p className="text-muted-foreground">Loading search...</p>
+      </div>
+    </div>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<SearchPageLoading />}>
+      <SearchPageContent />
+    </Suspense>
   )
 }
