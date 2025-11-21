@@ -95,9 +95,7 @@ function SearchPageContent() {
           query = query.contains("amenities", amenitiesFilter)
 
         // RANKING: Higher Rating first, then Newest
-        query = query
-          .order("rating", { ascending: false, nullsFirst: false })
-          .order("created_at", { ascending: false })
+        query = query.order("rank_score", { ascending: false })
 
         const { data, error: fetchError } = await query
 
