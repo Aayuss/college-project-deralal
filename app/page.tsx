@@ -1,14 +1,14 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { MapPin, Users, Shield, Zap } from 'lucide-react';
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { MapPin, Shield, Users, Zap } from "lucide-react"
+import Link from "next/link"
+import { useState } from "react"
 
 export default function LandingPage() {
-  const [searchCity, setSearchCity] = useState("");
+  const [searchCity, setSearchCity] = useState("")
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
@@ -18,16 +18,26 @@ export default function LandingPage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">d</span>
+                <span className="text-primary-foreground font-bold text-lg">
+                  d
+                </span>
               </div>
-              <span className="font-bold text-lg text-foreground hidden sm:inline">deralal</span>
+              <span className="font-bold text-lg text-foreground hidden sm:inline">
+                deralal
+              </span>
             </div>
 
             <div className="hidden md:flex items-center gap-8">
-              <Link href="#features" className="text-muted-foreground hover:text-foreground transition">
+              <Link
+                href="#features"
+                className="text-muted-foreground hover:text-foreground transition"
+              >
                 Features
               </Link>
-              <Link href="#how-it-works" className="text-muted-foreground hover:text-foreground transition">
+              <Link
+                href="#how-it-works"
+                className="text-muted-foreground hover:text-foreground transition"
+              >
                 How It Works
               </Link>
             </div>
@@ -39,7 +49,10 @@ export default function LandingPage() {
                 </Button>
               </Link>
               <Link href="/auth/sign-up">
-                <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+                <Button
+                  size="sm"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                >
                   Sign up
                 </Button>
               </Link>
@@ -56,7 +69,8 @@ export default function LandingPage() {
               Find Your Perfect <span className="text-primary">Room</span>
             </h1>
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-              Browse thousands of rental listings on deralal, connect with landlords, and find your ideal living space in minutes.
+              Browse thousands of rental listings on deralal, connect with
+              landlords, and find your ideal living space in minutes.
             </p>
           </div>
 
@@ -73,7 +87,11 @@ export default function LandingPage() {
                     onChange={(e) => setSearchCity(e.target.value)}
                   />
                 </div>
-                <Link href={`/rentee/search${searchCity ? `?city=${encodeURIComponent(searchCity)}` : ""}`}>
+                <Link
+                  href={`/rentee/search${
+                    searchCity ? `?city=${encodeURIComponent(searchCity)}` : ""
+                  }`}
+                >
                   <Button className="w-full sm:w-auto h-11 bg-primary text-primary-foreground hover:bg-primary/90">
                     Search Rooms
                   </Button>
@@ -100,7 +118,10 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-16 sm:py-24 bg-card/50 border-y border-border">
+      <section
+        id="features"
+        className="py-16 sm:py-24 bg-card/50 border-y border-border"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
@@ -116,25 +137,27 @@ export default function LandingPage() {
               {
                 icon: Zap,
                 title: "Quick Search",
-                description: "Find rooms with advanced filters and instant results"
+                description:
+                  "Find rooms with advanced filters and instant results",
               },
               {
                 icon: Shield,
                 title: "Secure Bookings",
-                description: "Protected transactions and verified landlords"
+                description: "Protected transactions and verified landlords",
               },
               {
                 icon: Users,
                 title: "Direct Chat",
-                description: "Connect with landlords instantly through messaging"
+                description:
+                  "Connect with landlords instantly through messaging",
               },
               {
                 icon: MapPin,
                 title: "Location Based",
-                description: "Discover listings by neighborhood and amenities"
-              }
+                description: "Discover listings by neighborhood and amenities",
+              },
             ].map((feature, idx) => {
-              const Icon = feature.icon;
+              const Icon = feature.icon
               return (
                 <Card key={idx} className="p-6 hover:shadow-md transition">
                   <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
@@ -147,7 +170,7 @@ export default function LandingPage() {
                     {feature.description}
                   </p>
                 </Card>
-              );
+              )
             })}
           </div>
         </div>
@@ -164,7 +187,10 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/auth/sign-up?type=rentee">
-              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto">
+              <Button
+                size="lg"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto"
+              >
                 Search as Rentee
               </Button>
             </Link>
@@ -184,33 +210,81 @@ export default function LandingPage() {
             <div>
               <h4 className="font-semibold text-foreground mb-4">Product</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="#" className="hover:text-foreground transition">Browse Rooms</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition">Pricing</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition">Safety</Link></li>
+                <li>
+                  <Link href="#" className="hover:text-foreground transition">
+                    Browse Rooms
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#" className="hover:text-foreground transition">
+                    Pricing
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#" className="hover:text-foreground transition">
+                    Safety
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-foreground mb-4">Support</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="#" className="hover:text-foreground transition">Help Center</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition">Contact Us</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition">FAQ</Link></li>
+                <li>
+                  <Link href="#" className="hover:text-foreground transition">
+                    Help Center
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#" className="hover:text-foreground transition">
+                    Contact Us
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#" className="hover:text-foreground transition">
+                    FAQ
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-foreground mb-4">Legal</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="#" className="hover:text-foreground transition">Terms</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition">Privacy</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition">Cookies</Link></li>
+                <li>
+                  <Link href="#" className="hover:text-foreground transition">
+                    Terms
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#" className="hover:text-foreground transition">
+                    Privacy
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#" className="hover:text-foreground transition">
+                    Cookies
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-foreground mb-4">Company</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="#" className="hover:text-foreground transition">About</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition">Blog</Link></li>
-                <li><Link href="#" className="hover:text-foreground transition">Careers</Link></li>
+                <li>
+                  <Link href="#" className="hover:text-foreground transition">
+                    About
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#" className="hover:text-foreground transition">
+                    Blog
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#" className="hover:text-foreground transition">
+                    Careers
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>
@@ -222,5 +296,5 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
-  );
+  )
 }

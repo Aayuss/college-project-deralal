@@ -1,87 +1,98 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useParams, useRouter } from 'next/navigation';
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import Link from "next/link";
-import { MapPin, Bed, Bath, Star, Phone, Mail, Clock, ChevronLeft, MessageSquare } from 'lucide-react';
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { createClient } from "@/lib/supabase/client"
+import {
+  Bath,
+  Bed,
+  ChevronLeft,
+  Clock,
+  MapPin,
+  MessageSquare,
+  Phone,
+  Star,
+} from "lucide-react"
+import Link from "next/link"
+import { useParams, useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 
 interface Profile {
-  id: string;
-  first_name: string;
-  last_name: string;
-  phone: string;
-  avatar_url: string;
-  rating: number;
-  review_count: number;
-  response_time: string;
-  bio: string;
+  id: string
+  first_name: string
+  last_name: string
+  phone: string
+  avatar_url: string
+  rating: number
+  review_count: number
+  response_time: string
+  bio: string
 }
 
 interface Listing {
-  id: string;
-  title: string;
-  city: string;
-  price: number;
-  bedrooms: number;
-  bathrooms: number;
-  photos: string[];
+  id: string
+  title: string
+  city: string
+  price: number
+  bedrooms: number
+  bathrooms: number
+  photos: string[]
 }
 
 interface Review {
-  id: string;
-  rating: number;
-  comment: string;
-  reviewer_name: string;
-  created_at: string;
+  id: string
+  rating: number
+  comment: string
+  reviewer_name: string
+  created_at: string
 }
 
 export default function LandlordProfilePage() {
-  const params = useParams();
-  const router = useRouter();
-  const [landlord, setLandlord] = useState<Profile | null>(null);
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const params = useParams()
+  const router = useRouter()
+  const [landlord, setLandlord] = useState<Profile | null>(null)
+  const [listings, setListings] = useState<Listing[]>([])
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [user, setUser] = useState<any>(null)
 
-  const landlordId = Array.isArray(params.id) ? params.id[0] : params.id;
-  const supabase = createClient();
+  const landlordId = Array.isArray(params.id) ? params.id[0] : params.id
+  const supabase = createClient()
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      setUser(authUser);
-    };
-    fetchUser();
-  }, []);
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser()
+      setUser(authUser)
+    }
+    fetchUser()
+  }, [])
 
   useEffect(() => {
     const fetchLandlordData = async () => {
       try {
-        setLoading(true);
+        setLoading(true)
 
         // Fetch landlord profile
         const { data: landlordData, error: landlordError } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", landlordId)
-          .single();
+          .single()
 
-        if (landlordError) throw landlordError;
-        setLandlord(landlordData);
+        if (landlordError) throw landlordError
+        setLandlord(landlordData)
 
         // Fetch landlord's listings
         const { data: listingsData } = await supabase
           .from("listings")
           .select("*")
           .eq("landlord_id", landlordId)
-          .limit(10);
+          .limit(10)
 
-        setListings(listingsData || []);
+        setListings(listingsData || [])
 
         // Fetch reviews for landlord
         const { data: reviewsData } = await supabase
@@ -89,27 +100,29 @@ export default function LandlordProfilePage() {
           .select("*")
           .eq("landlord_id", landlordId)
           .order("created_at", { ascending: false })
-          .limit(10);
+          .limit(10)
 
-        setReviews(reviewsData || []);
-        setError(null);
+        setReviews(reviewsData || [])
+        setError(null)
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load landlord profile");
+        setError(
+          err instanceof Error ? err.message : "Failed to load landlord profile"
+        )
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    if (landlordId) fetchLandlordData();
-  }, [landlordId]);
+    if (landlordId) fetchLandlordData()
+  }, [landlordId])
 
   const handleContactLandlord = async () => {
     if (!user) {
-      router.push("/auth/login");
-      return;
+      router.push("/auth/login")
+      return
     }
-    router.push(`/messages?contact=${landlordId}`);
-  };
+    router.push(`/messages?contact=${landlordId}`)
+  }
 
   if (loading) {
     return (
@@ -119,7 +132,7 @@ export default function LandlordProfilePage() {
           <p className="text-muted-foreground">Loading profile...</p>
         </div>
       </div>
-    );
+    )
   }
 
   if (error || !landlord) {
@@ -127,13 +140,15 @@ export default function LandlordProfilePage() {
       <div className="min-h-screen flex flex-col items-center justify-center">
         <Card className="p-8 max-w-md text-center">
           <h2 className="text-xl font-bold mb-2">Profile not found</h2>
-          <p className="text-muted-foreground mb-6">{error || "This profile is no longer available"}</p>
+          <p className="text-muted-foreground mb-6">
+            {error || "This profile is no longer available"}
+          </p>
           <Link href="/rentee/search">
             <Button>Back to Search</Button>
           </Link>
         </Card>
       </div>
-    );
+    )
   }
 
   return (
@@ -168,7 +183,9 @@ export default function LandlordProfilePage() {
               />
             ) : (
               <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-2xl font-bold text-primary">{landlord.first_name.charAt(0)}</span>
+                <span className="text-2xl font-bold text-primary">
+                  {landlord.first_name.charAt(0)}
+                </span>
               </div>
             )}
             <div className="flex-1">
@@ -178,14 +195,20 @@ export default function LandlordProfilePage() {
               <div className="flex flex-wrap gap-4 mb-4">
                 <div className="flex items-center gap-2">
                   <Star className="w-5 h-5 fill-primary text-primary" />
-                  <span className="font-semibold">{landlord.rating} ({landlord.review_count} reviews)</span>
+                  <span className="font-semibold">
+                    {landlord.rating} ({landlord.review_count} reviews)
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-muted-foreground" />
-                  <span>Response time: {landlord.response_time || "Usually quick"}</span>
+                  <span>
+                    Response time: {landlord.response_time || "Usually quick"}
+                  </span>
                 </div>
               </div>
-              {landlord.bio && <p className="text-muted-foreground mb-4">{landlord.bio}</p>}
+              {landlord.bio && (
+                <p className="text-muted-foreground mb-4">{landlord.bio}</p>
+              )}
               <div className="flex gap-2">
                 {landlord.phone && (
                   <Button variant="outline" size="sm">
@@ -193,7 +216,7 @@ export default function LandlordProfilePage() {
                     {landlord.phone}
                   </Button>
                 )}
-                <Button 
+                <Button
                   onClick={handleContactLandlord}
                   size="sm"
                   className="bg-primary text-primary-foreground hover:bg-primary/90"
@@ -208,20 +231,26 @@ export default function LandlordProfilePage() {
 
         {/* Listings Section */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-4">Listings by this Landlord ({listings.length})</h2>
+          <h2 className="text-2xl font-bold mb-4">
+            Listings by this Landlord ({listings.length})
+          </h2>
           {listings.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {listings.map(listing => (
+              {listings.map((listing) => (
                 <Link key={listing.id} href={`/rentee/listing/${listing.id}`}>
                   <Card className="overflow-hidden hover:shadow-lg transition cursor-pointer h-full">
                     <div
                       className="w-full h-32 bg-cover bg-center"
                       style={{
-                        backgroundImage: `url(${listing.photos?.[0] || '/placeholder.svg'})`,
+                        backgroundImage: `url(${
+                          listing.photos?.[0] || "/placeholder.svg"
+                        })`,
                       }}
                     />
                     <div className="p-4">
-                      <h3 className="font-semibold mb-2 truncate">{listing.title}</h3>
+                      <h3 className="font-semibold mb-2 truncate">
+                        {listing.title}
+                      </h3>
                       <div className="space-y-1 text-sm text-muted-foreground mb-3">
                         <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4" />
@@ -229,7 +258,8 @@ export default function LandlordProfilePage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Bed className="w-4 h-4" />
-                          {listing.bedrooms} beds • <Bath className="w-4 h-4" /> {listing.bathrooms} baths
+                          {listing.bedrooms} beds • <Bath className="w-4 h-4" />{" "}
+                          {listing.bathrooms} baths
                         </div>
                       </div>
                       <div className="text-lg font-bold text-primary">
@@ -249,10 +279,12 @@ export default function LandlordProfilePage() {
 
         {/* Reviews Section */}
         <div>
-          <h2 className="text-2xl font-bold mb-4">Reviews from Renters ({reviews.length})</h2>
+          <h2 className="text-2xl font-bold mb-4">
+            Reviews from Renters ({reviews.length})
+          </h2>
           {reviews.length > 0 ? (
             <div className="space-y-4">
-              {reviews.map(review => (
+              {reviews.map((review) => (
                 <Card key={review.id} className="p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div>
@@ -286,5 +318,5 @@ export default function LandlordProfilePage() {
         </div>
       </div>
     </div>
-  );
+  )
 }

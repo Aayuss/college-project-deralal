@@ -1,11 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server"
 
-// In production, use a library like jsPDF or pdfkit
 export async function POST(request: NextRequest) {
   try {
-    const { listing, landlord, renter } = await request.json();
+    const { listing, landlord, renter } = await request.json()
 
-    // Generate PDF content (simplified - in production use jsPDF or similar)
     const pdfContent = `
 RENTAL AGREEMENT
 
@@ -27,23 +25,26 @@ This rental agreement is valid from the check-in date as specified in the bookin
 
 Generated on: ${new Date().toLocaleDateString()}
 This agreement is digitally signed through deralal platform.
-    `;
+    `
 
     // For this implementation, we'll return a text file
     // In production, use a PDF library to generate actual PDF
-    const buffer = Buffer.from(pdfContent, "utf-8");
+    const buffer = Buffer.from(pdfContent, "utf-8")
 
     return new NextResponse(buffer, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="rental-contract-${listing?.title?.replace(/\s+/g, "-")}.pdf"`,
+        "Content-Disposition": `attachment; filename="rental-contract-${listing?.title?.replace(
+          /\s+/g,
+          "-"
+        )}.pdf"`,
       },
-    });
+    })
   } catch (error) {
-    console.error("PDF generation error:", error);
+    console.error("PDF generation error:", error)
     return NextResponse.json(
       { error: "Failed to generate contract" },
       { status: 500 }
-    );
+    )
   }
 }

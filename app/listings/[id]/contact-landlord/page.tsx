@@ -1,38 +1,39 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { useParams, useRouter } from 'next/navigation';
-import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import Link from "next/link";
-import { ChevronLeft, Send } from 'lucide-react';
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { createClient } from "@/lib/supabase/client"
+import { ChevronLeft, Send } from "lucide-react"
+import Link from "next/link"
+import { useParams, useRouter } from "next/navigation"
+import { useState } from "react"
 
 export default function ContactLandlordPage() {
-  const params = useParams();
-  const router = useRouter();
-  const listingId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const params = useParams()
+  const router = useRouter()
+  const listingId = Array.isArray(params.id) ? params.id[0] : params.id
 
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
+  const [message, setMessage] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [sent, setSent] = useState(false)
 
   const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim()) return;
+    e.preventDefault()
+    if (!message.trim()) return
 
     try {
-      setLoading(true);
-      setError(null);
+      setLoading(true)
+      setError(null)
 
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
       if (!user) {
-        router.push("/auth/login");
-        return;
+        router.push("/auth/login")
+        return
       }
 
       // Get listing to find landlord
@@ -40,35 +41,33 @@ export default function ContactLandlordPage() {
         .from("listings")
         .select("landlord_id")
         .eq("id", listingId)
-        .single();
+        .single()
 
       if (!listing) {
-        setError("Listing not found");
-        return;
+        setError("Listing not found")
+        return
       }
 
       // Send message
-      const { error: msgError } = await supabase
-        .from("messages")
-        .insert({
-          sender_id: user.id,
-          receiver_id: listing.landlord_id,
-          conversation_id: listing.landlord_id,
-          content: message,
-          message_type: "text",
-        });
+      const { error: msgError } = await supabase.from("messages").insert({
+        sender_id: user.id,
+        receiver_id: listing.landlord_id,
+        conversation_id: listing.landlord_id,
+        content: message,
+        message_type: "text",
+      })
 
-      if (msgError) throw msgError;
+      if (msgError) throw msgError
 
-      setSent(true);
-      setMessage("");
-      setTimeout(() => router.push("/messages"), 2000);
+      setSent(true)
+      setMessage("")
+      setTimeout(() => router.push("/messages"), 2000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send message");
+      setError(err instanceof Error ? err.message : "Failed to send message")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -98,7 +97,9 @@ export default function ContactLandlordPage() {
             <div className="text-center py-8">
               <div className="text-4xl mb-4">✓</div>
               <h2 className="font-bold text-lg mb-2">Message Sent!</h2>
-              <p className="text-muted-foreground">The landlord will receive your message shortly.</p>
+              <p className="text-muted-foreground">
+                The landlord will receive your message shortly.
+              </p>
             </div>
           ) : (
             <form onSubmit={handleSendMessage} className="space-y-4">
@@ -109,7 +110,9 @@ export default function ContactLandlordPage() {
               )}
 
               <div>
-                <label className="text-sm font-medium mb-2 block">Your Message *</label>
+                <label className="text-sm font-medium mb-2 block">
+                  Your Message *
+                </label>
                 <textarea
                   placeholder="Tell the landlord about yourself and why you're interested in this property..."
                   value={message}
@@ -132,5 +135,5 @@ export default function ContactLandlordPage() {
         </Card>
       </div>
     </div>
-  );
+  )
 }
