@@ -24,22 +24,24 @@ interface Listing {
   rating: number
 }
 
-// decide if we should save this query as a "real" search
+// Helper to decide if we should save this query to history
 function isMeaningfulSearch(query: string): boolean {
-  const q = query.trim().toLowerCase()
-  if (!q) return false
+  const cleanQ = query
+    .replace(/^(i want|i need|looking for)\s+/i, "")
+    .trim()
+    .toLowerCase()
 
-  const tokens = q.split(/\s+/).filter(Boolean)
+  if (!cleanQ) return false
 
-  // single token: require something like "3bhk", "pokhara"
+  const tokens = cleanQ.split(/\s+/).filter(Boolean)
+
   if (tokens.length === 1) {
     const t = tokens[0]
-    if (t.length < 4) return false // filters out "3"
-    if (/\d/.test(t)) return true // "3bhk", "2bhk"
-    return true // e.g. "pokhara"
+    if (t.length < 4) return false
+    if (/\d/.test(t)) return true
+    return true
   }
 
-  // multi-token: at least one token length >= 3
   const hasSubstantialToken = tokens.some((t) => t.length >= 3)
   return hasSubstantialToken
 }
@@ -61,7 +63,6 @@ function SearchPageContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [amenitiesFilter, setAmenitiesFilter] = useState<string[]>([])
 
-  // last saved query to avoid identical duplicates
   const [lastSavedQuery, setLastSavedQuery] = useState<string | null>(null)
 
   // Fetch listings from Supabase using structured filters
@@ -80,35 +81,23 @@ function SearchPageContent() {
           .select("*")
           .eq("availability_status", "available")
 
-        // Hide own listings if logged in
         if (user) {
           query = query.neq("landlord_id", user.id)
         }
 
-        if (city) {
-          query = query.ilike("city", `%${city}%`)
-        }
-
-        if (minPrice) {
-          query = query.gte("price", parseFloat(minPrice))
-        }
-
-        if (maxPrice) {
-          query = query.lte("price", parseFloat(maxPrice))
-        }
-
-        if (bedrooms) {
-          query = query.eq("bedrooms", parseInt(bedrooms, 10))
-        }
-
-        if (bathrooms) {
-          query = query.eq("bathrooms", parseInt(bathrooms, 10))
-        }
-
-        if (amenitiesFilter.length > 0) {
-          // amenities is text[] in your schema
+        // Apply Sidebar Filters
+        if (city) query = query.ilike("city", `%${city}%`)
+        if (minPrice) query = query.gte("price", parseFloat(minPrice))
+        if (maxPrice) query = query.lte("price", parseFloat(maxPrice))
+        if (bedrooms) query = query.eq("bedrooms", parseInt(bedrooms, 10))
+        if (bathrooms) query = query.eq("bathrooms", parseInt(bathrooms, 10))
+        if (amenitiesFilter.length > 0)
           query = query.contains("amenities", amenitiesFilter)
-        }
+
+        // RANKING: Higher Rating first, then Newest
+        query = query
+          .order("rating", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false })
 
         const { data, error: fetchError } = await query
 
@@ -129,46 +118,82 @@ function SearchPageContent() {
     fetchListings()
   }, [city, minPrice, maxPrice, bedrooms, bathrooms, amenitiesFilter])
 
-  // Token-based client-side text matching for searchQuery
+  // --- SMART CLIENT-SIDE FILTERING ---
   useEffect(() => {
-    const q = searchQuery.toLowerCase().trim()
+    const q = searchQuery.trim()
 
     if (!q) {
       setFilteredListings(listings)
       return
     }
 
-    const tokens = q.split(/\s+/).filter(Boolean)
+    // 1. Parse the natural language query to get logic (e.g. maxPrice: 20000)
+    const parsed = parseQueryToFilters(q)
 
+    // 2. Filter the existing listings based on this logic
     const filtered = listings.filter((listing) => {
-      const haystack = (
-        listing.title +
-        " " +
-        listing.description +
-        " " +
-        listing.address +
-        " " +
-        listing.city +
-        " " +
-        listing.district +
-        " " +
-        listing.amenities.join(" ")
-      ).toLowerCase()
+      // Check Price
+      if (parsed.maxPrice !== undefined && listing.price > parsed.maxPrice)
+        return false
+      if (parsed.minPrice !== undefined && listing.price < parsed.minPrice)
+        return false
 
-      // Require that every token appears somewhere in the listing text
-      return tokens.every((t) => haystack.includes(t))
+      // Check Bedrooms (exact match if specified)
+      if (parsed.bedrooms !== undefined && listing.bedrooms !== parsed.bedrooms)
+        return false
+
+      // Check City (fuzzy match)
+      if (parsed.city) {
+        const listingCity = listing.city?.toLowerCase() || ""
+        const searchCity = parsed.city.toLowerCase()
+        if (!listingCity.includes(searchCity)) return false
+      }
+
+      // Check Amenities
+      if (parsed.amenities && parsed.amenities.length > 0) {
+        const hasAllAmenities = parsed.amenities.every((req) =>
+          listing.amenities.some((avail) =>
+            avail.toLowerCase().includes(req.toLowerCase())
+          )
+        )
+        if (!hasAllAmenities) return false
+      }
+
+      // 3. Check Remaining Text (Title/Desc/Address)
+      // This handles "beautiful", "near park", etc.
+      if (parsed.remainingQuery) {
+        const tokens = parsed.remainingQuery
+          .toLowerCase()
+          .split(/\s+/)
+          .filter(Boolean)
+        const haystack = (
+          listing.title +
+          " " +
+          listing.description +
+          " " +
+          listing.address +
+          " " +
+          listing.city +
+          " " +
+          listing.district
+        ).toLowerCase()
+
+        // All remaining text tokens must exist in the listing
+        return tokens.every((t) => haystack.includes(t))
+      }
+
+      return true
     })
 
     setFilteredListings(filtered)
   }, [searchQuery, listings])
 
-  // Debounced logging of meaningful natural-language queries to search_history
+  // Debounced logging remains the same...
   useEffect(() => {
     const q = searchQuery.trim()
     if (!q) return
 
     const handler = setTimeout(async () => {
-      // only save meaningful ones like "3bhk", "3bhk in kathmandu", not just "3"
       if (!isMeaningfulSearch(q)) return
       if (lastSavedQuery && lastSavedQuery === q) return
 
@@ -190,13 +215,9 @@ function SearchPageContent() {
         bathrooms: parsed.bathrooms ?? null,
       })
 
-      if (error) {
-        console.warn("Failed to save search", error.message)
-        return
-      }
-
+      if (error) console.warn("Failed to save search", error.message)
       setLastSavedQuery(q)
-    }, 800) // debounce ~0.8s after typing stops
+    }, 800)
 
     return () => clearTimeout(handler)
   }, [searchQuery, lastSavedQuery])
@@ -235,7 +256,6 @@ function SearchPageContent() {
 
   return (
     <div className="min-h-screen bg-background pt-6">
-      {/* Header */}
       <div className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -271,14 +291,14 @@ function SearchPageContent() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g., 3BHK in Kathmandu with wifi under 20000"
+                    placeholder="e.g., I want 3BHK in Kathmandu under 20000"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={handleSearch}
                     className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm h-9"
                   />
                   <p className="text-xs text-muted-foreground mt-2">
-                    Press Enter to auto-detect filters
+                    Press Enter to apply strict filters
                   </p>
                 </div>
 
@@ -368,9 +388,7 @@ function SearchPageContent() {
           <div className="lg:col-span-3">
             <div className="mb-6">
               <h1 className="text-3xl font-bold mb-2">
-                {searchQuery
-                  ? `Search Results for "${searchQuery}"`
-                  : "Available Rooms"}
+                {searchQuery ? `Search Results` : "Available Rooms"}
               </h1>
               <p className="text-muted-foreground">
                 {filteredListings.length}{" "}
@@ -404,7 +422,6 @@ function SearchPageContent() {
                 {filteredListings.map((listing) => (
                   <Link key={listing.id} href={`/rentee/listing/${listing.id}`}>
                     <div className="overflow-hidden rounded-lg border border-border hover:shadow-lg transition cursor-pointer h-full flex flex-col">
-                      {/* Listing Image */}
                       <div className="relative bg-muted h-48 overflow-hidden">
                         {listing.photos && listing.photos.length > 0 ? (
                           <img
@@ -417,23 +434,25 @@ function SearchPageContent() {
                             <MapPin className="w-12 h-12 text-muted-foreground opacity-30" />
                           </div>
                         )}
+                        {listing.rating && (
+                          <div className="absolute top-2 right-2 bg-black/70 backdrop-blur text-white px-2 py-1 rounded flex items-center gap-1 text-xs">
+                            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                            {listing.rating}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Content */}
                       <div className="p-4 flex-1 flex flex-col">
                         <h3 className="font-bold text-lg mb-2 line-clamp-2">
                           {listing.title}
                         </h3>
-
                         <div className="flex items-center text-sm text-muted-foreground mb-3">
                           <MapPin className="w-4 h-4 mr-1" />
                           {listing.address}, {listing.city}
                         </div>
-
                         <p className="text-sm text-muted-foreground mb-4 line-clamp-2 flex-1">
                           {listing.description}
                         </p>
-
                         <div className="grid grid-cols-2 gap-2 mb-4">
                           <div className="flex items-center gap-2 text-sm">
                             <Bed className="w-4 h-4 text-primary" />
@@ -450,7 +469,6 @@ function SearchPageContent() {
                             </span>
                           </div>
                         </div>
-
                         <div className="flex items-center justify-between pt-4 border-t border-border">
                           <div className="flex items-center gap-1">
                             <Star className="w-4 h-4 fill-primary text-primary" />
